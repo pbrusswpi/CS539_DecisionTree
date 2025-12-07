@@ -1,13 +1,11 @@
-# For running this file in terminal: 
-# cd /Users/mohammedmubashiruddinfaraz/Documents/Machine_Learning/Decision_Tree
-# "./.venv/bin/python" "Tree.py"
-
-# Importing the libraries
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import os, subprocess
-AUTO_OPEN = True  # auto-open generated figures in Preview (macOS). Set False if you don't want this.
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
+AUTO_OPEN = True  
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import precision_recall_curve, roc_curve, f1_score
 generated_files = []
 
 # Importing the dataset
@@ -17,7 +15,6 @@ y = dataset.iloc[:, -1].astype(int).to_numpy()
 feature_names = dataset.columns[:-1].tolist()
 
 # Splitting the dataset into the Training set and Test set
-from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.25, random_state=42, stratify=y
 )
@@ -29,8 +26,10 @@ print(y_test)
 
 # Training the Decision Tree Classification model on the Training set
 
-# ----- baseline DT -----
-from sklearn.tree import DecisionTreeClassifier, plot_tree
+########################
+# BASELINE DECISION TREE
+########################
+
 from sklearn.metrics import (
     classification_report, roc_auc_score, confusion_matrix,
     ConfusionMatrixDisplay, RocCurveDisplay,
@@ -76,7 +75,10 @@ plot_tree(dt0, feature_names=feature_names, class_names=['No Stroke','Stroke'],
 plt.tight_layout(); plt.savefig("dt_tree.png", dpi=200); plt.close()
 generated_files.append(os.path.abspath("dt_tree.png"))
 
-# ----- hyperparameter tuning (CV) -----
+#######################
+# HYPERPARAMETER TUNING
+#######################
+
 param_grid = {
     "criterion": ["gini", "entropy"],
     "max_depth": [3, 5, 7, 9, None],
@@ -108,7 +110,9 @@ print("Best params:", grid.best_params_)
 proba = best.predict_proba(X_test)[:,1]
 pred  = best.predict(X_test)
 
-# ----- NEW: generate figures for tuned model -----
+#####################
+# GENERATING FIGURES
+#####################
 
 # Confusion matrix (tuned)
 ConfusionMatrixDisplay(confusion_matrix(y_test, pred)).plot()
@@ -150,7 +154,10 @@ for name, clf in [("DT_baseline", dt0), ("DT_tuned", best)]:
 pd.DataFrame(rows, columns=["Model","ROC_AUC","Prec(1)","Rec(1)","F1(1)","Accuracy"])\
   .to_csv("dt_results_summary.csv", index=False)
 
-# ----- cost-complexity pruning -----
+#########################
+# COST-COMPLEXITY PRUNING
+#########################
+
 path = DecisionTreeClassifier(random_state=42, class_weight="balanced").cost_complexity_pruning_path(X_train, y_train)
 ccp_values = np.unique(path.ccp_alphas)
 cv_scores = []
@@ -166,8 +173,7 @@ best_alpha = ccp_values[int(np.argmax(cv_scores))]
 dt_pruned = DecisionTreeClassifier(random_state=42, class_weight="balanced", ccp_alpha=best_alpha).fit(X_train, y_train)
 print("Chosen ccp_alpha:", best_alpha, "ROC-AUC (pruned):", roc_auc_score(y_test, dt_pruned.predict_proba(X_test)[:,1]))
 
-# ----- threshold selection variants -----
-from sklearn.metrics import precision_recall_curve, roc_curve, f1_score
+# threshold selection variants
 
 prec, rec, thr = precision_recall_curve(y_test, proba)
 
@@ -200,7 +206,6 @@ yhat_youd = (proba >= youd_thr).astype(int)
 print(f"Youden J threshold: {youd_thr:.4f}")
 print(classification_report(y_test, yhat_youd, digits=3, zero_division=0))
 
-# ----- Show where figures were saved -----
 if generated_files:
     print("\nGenerated figures:")
     for f in generated_files:
